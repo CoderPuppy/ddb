@@ -1,0 +1,13 @@
+{
+	"name": "ddb",
+	"version": "0.0.0",
+	"author": "CoderPuppy",
+
+	"dependencies": {
+		"hat": "~0.0.3"
+	},
+
+	"devDependencies": {
+		"LiveScript": "~1.2.0"
+	}
+}
