@@ -1,6 +1,7 @@
 # Dynamic Database
+**A basic graph database**
 
-__Note: This requires ES6 Collections - Enable them with --harmony-collections__
+**Note: This requires ES6 Collections - Enable them with --harmony-collections**
 
 ## Overview
 There are two types of objects (by default):

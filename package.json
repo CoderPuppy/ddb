@@ -3,6 +3,8 @@
 	"version": "0.0.0",
 	"author": "CoderPuppy",
 
+	"description": "A basic graph database",
+
 	"main": "lib/index.js",
 
 	"dependencies": {
