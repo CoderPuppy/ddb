@@ -88,6 +88,7 @@ class ddb.DB
 
 class ddb.Object
 	registered: (db) ->
+	id: -> throw new Error("#{@constructor.name} must implement id")
 
 class ddb.ID extends ddb.Object
 	id: -> @_id
