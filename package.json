@@ -4,6 +4,7 @@
 	"author": "CoderPuppy",
 
 	"description": "A basic graph database",
+	"repository": "git://github.com/CoderPuppy/ddb.git",
 
 	"main": "lib/index.js",
 
