@@ -3,6 +3,8 @@
 	"version": "0.0.0",
 	"author": "CoderPuppy",
 
+	"main": "lib/index.js",
+
 	"dependencies": {
 		"hat": "~0.0.3"
 	},
