@@ -5,6 +5,7 @@
 
 ## Overview
 There are two types of objects (by default):
+
 - **Identity Objects** -- Purely identity, no state, the id is random
 - **Data Objects** -- Purely data, the id is based on the data
 
