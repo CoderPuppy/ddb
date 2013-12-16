@@ -16,20 +16,20 @@ let @ = ddb.registry
 
 class ddb.DB
 	->
-		@objects = {} # { id: obj }
-		@_assocs = {} # { id: [ obj ] }
+		@nodes = {} # { id: node }
+		@_assocs = {} # { id: [ node ] }
 		@rack = hat.rack!
 
 	to-json: ->
 		j =
-			objs: []
+			nodes: []
 			assocs: []
 
 		indexes = {}
 
-		for id, obj of @objects
-			j.objs.push [ obj.constructor.id, obj.to-json! ]
-			indexes[obj.qid!] = j.objs.length - 1
+		for id, node of @nodes
+			j.nodes.push [ node.constructor.id, node.to-json! ]
+			indexes[node.qid!] = j.nodes.length - 1
 
 		saved-assocs = {} # { a-id: Set(b-id) }
 
@@ -45,45 +45,45 @@ class ddb.DB
 		j
 
 	load-json: (j) ->
-		objs = {}
+		nodes = {}
 
-		for obj, i in j.objs
-			obj = ddb.registry.from(obj)
-			objs[i] = obj
-			@register obj
+		for node, i in j.nodes
+			node = ddb.registry.from(node)
+			nodes[i] = node
+			@register node
 
 		for assoc in j.assocs
-			@assoc objs[assoc[0]], objs[assoc[1]]
+			@assoc nodes[assoc[0]], nodes[assoc[1]]
 
 		@
 
 	@from-json = (j) -> new @!.load-json(j)
 
-	register: (obj) ->
-		unless @objects[obj.qid!]?
-			# throw new Error('That id is already registered: ' + util.inspect(obj))
+	register: (node) ->
+		unless @nodes[node.qid!]?
+			# throw new Error('That id is already registered: ' + util.inspect(node))
 		# else
-			obj.registered @
+			node.registered @
 
-			@objects[obj.qid!] = obj
+			@nodes[node.qid!] = node
 
-			@rack.set(obj.qid!, obj)
+			@rack.set(node.qid!, node)
 
 		@
 
-	all: (kind = ddb.Object) ->
+	all: (kind = ddb.Node) ->
 		all = []
 
-		for id, obj of @objects when obj instanceof kind
-			all.push obj
+		for id, node of @nodes when node instanceof kind
+			all.push node
 
 		all
 
-	assocs: (obj, kind = ddb.Object) ->
-		assocs = @_assocs[obj.qid!]
+	assocs: (node, kind = ddb.Node) ->
+		assocs = @_assocs[node.qid!]
 
 		if assocs?
-			assocs.map(~> @objects[it]).filter(-> it instanceof kind)
+			assocs.map(~> @nodes[it]).filter(-> it instanceof kind)
 		else
 			[]
 
@@ -108,13 +108,13 @@ class ddb.DB
 
 		@
 
-class ddb.Object
+class ddb.Node
 	registered: (db) ->
 	id: -> throw new Error("#{@constructor.name} must implement id")
 	to-json: -> throw new Error("#{@constructor.name} must implement to-json")
 	qid: -> "#{@constructor.id}-#{@id!}"
 
-class ddb.ID extends ddb.Object
+class ddb.ID extends ddb.Node
 	id: -> @_id
 	inspect: -> "<#{@constructor.name}:#{@_id}>"
 	registered: (db) ->
@@ -126,7 +126,7 @@ class ddb.ID extends ddb.Object
 	to-json: -> {}
 	@from-json = (j) -> new @
 
-class ddb.Data extends ddb.Object
+class ddb.Data extends ddb.Node
 	(...@data) ->
 	inspect: ->
 		[

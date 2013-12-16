@@ -4,30 +4,30 @@
 **Note: This requires ES6 Collections - Enable them with --harmony-collections**
 
 ## Overview
-There are two types of objects (by default):
+There are two types of nodes (by default):
 
-- **Identity Objects** -- Purely identity, no state, the id is random
-- **Data Objects** -- Purely data, the id is based on the data
+- **Identity Nodes** -- Purely identity, no state, the id is random
+- **Data Nodes** -- Purely data, the id is based on the data
 
-You can register objects into a database and associate two objects together.
-To get the objects back you can either get all objects of a type or get all associated objects of an object (optionally restricting it to a type).
+You can register nodes into a database and associate two nodes together.
+To get the nodes back you can either get all nodes of a type or get all associated nodes of an node (optionally restricting it to a type).
 
 ## Usage
 **DB**
 
-- *register(Object)*: Register an object with the database
-- *assoc(a: Object, b: Object)*: Associate *a* with *b*
-- *assocs(obj: Object, [kind: Kind])*: Get all the objects associated with *obj* of kind: *kind*
-- *all(kind: Kind)*: Get all objects of kind: *kind*
+- *register(Node)*: Register an node with the database
+- *assoc(a: Node, b: Node)*: Associate *a* with *b*
+- *assocs(node: Node, [kind: Kind])*: Get all the nodes associated with *node* of kind: *kind*
+- *all(kind: Kind)*: Get all nodes of kind: *kind*
 
-**Object**
+**Node**
 
 - *registered(db: DB)*: Callback for when it's registered with a database
-- *id()*: ID for this object, abstract
+- *id()*: ID for this node, abstract
 
 **Data**
 
-- *new Data(data...)*: Create a new data object with data: *data*
+- *new Data(data...)*: Create a new data node with data: *data*
 
 **ID**
 
