@@ -27,6 +27,24 @@ To get the nodes back you can either get all nodes of a type or get all associat
 
 **Data**
 
+If the constructor has a property called names, methods will be generated to get and set properties.
+Example:
+
+```javascript
+var util = require('util')
+var ddb = require('ddb')
+
+function Name() {
+	ddb.Data.apply(this, arguments)
+}
+Name.names = [ 'type', 'val' ]
+util.inherits(Name, ddb.data)
+
+var name = new Name('last', 'Doe')
+name.type() == 'last'
+name.val() == 'Doe'
+```
+
 - *new Data(data...)*: Create a new data node with data: *data*
 
 **ID**
