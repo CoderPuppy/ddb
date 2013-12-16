@@ -1,8 +1,6 @@
 # Dynamic Database
 **A basic graph database**
 
-**Note: This requires ES6 Collections - Enable them with --harmony-collections**
-
 ## Overview
 There are two types of nodes (by default):
 
