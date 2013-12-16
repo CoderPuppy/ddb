@@ -10,6 +10,7 @@ ddb.registry.register Person
 
 class Name extends ddb.Data
 	@id = \name
+	@names = [ \type, \val ]
 	# todo: maybe?
 	@type = [ String, String ]
 
@@ -44,16 +45,19 @@ db.assoc john-doe, last-name
 
 db.assoc last-name, first-name
 
-# console.log db.assocs(john-doe)
 # console.log db.all(Name)
-all = db.all(Name).map(-> db.assocs(it))
-debugger
-console.log all
-# console.log db.assocs(new Name(\last, \Doe), Person)
+# console.log db.all(Name).map(-> db.assocs(it, Person))
 
-# console.log util.inspect(db.to-json!, colors: true, depth: null)
+# Name(last, Doe) -> Person -> Name(first)
+q = new ddb.Query(db)
 
-db2 = new ddb.DB
-db2.load-json db.to-json!
+q.add new Name(\last, \Doe)
+q.assoc Person
+q.assoc Name
+q.filter new Name(\first)
 
-console.log db.all(Name).map(-> db.assocs(it))
+console.log q.run!
+
+flatten = -> it.reduce(((acc, val) -> acc.concat(val)), [])
+
+console.log db.assocs(new Name(\last, \Doe), Person)
