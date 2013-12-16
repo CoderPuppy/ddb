@@ -17,8 +17,8 @@ To get the nodes back you can either get all nodes of a type or get all associat
 
 - *register(Node)*: Register an node with the database
 - *assoc(a: Node, b: Node)*: Associate *a* with *b*
-- *assocs(node: Node, [kind: Kind])*: Get all the nodes associated with *node* of kind: *kind*
-- *all(kind: Kind)*: Get all nodes of kind: *kind*
+- *assocs(node: Node, [filter])*: Get all the nodes associated with *node* of that match filter: *filter*
+- *all([filter])*: Get all nodes that match filter: *filter*
 
 **Node**
 
@@ -58,7 +58,7 @@ Don't use one of these with multiple databases - only the last one you register 
 These let you seperate the definition of what to find from finding them.
 
 - *new Query(db, base... = [ db ])*: Creates a new query on the db: *db*, starting with objects: *base*
-- *assoc(kind = Node)*: Find all the nodes associated with the current set
+- *assoc(filter)*: Find all the nodes (that match the filter) associated with the current set
 - *add(...nodes)*: Add nodes to the current set
 - *filter(filter)*: Filter the current set by the filter
 - *run()*: Find all the nodes

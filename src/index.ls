@@ -135,20 +135,20 @@ class ddb.DB extends ddb.ID
 
 		@
 
-	all: (kind = ddb.Node) ->
+	all: (filter) ->
 		# all = []
 
 		# for id, node of @nodes when node instanceof kind
 		# 	all.push node
 
 		# all
-		@assocs @, kind
+		@assocs @, filter
 
-	assocs: (node = @, kind = ddb.Node) ->
+	assocs: (node = @, filter) ->
 		assocs = @_assocs[node.qid!]
 
 		if assocs?
-			assocs.map(~> @nodes[it]).filter(-> it instanceof kind)
+			assocs.map(~> @nodes[it]).filter(-> it.filter(filter))
 		else
 			[]
 
@@ -180,8 +180,8 @@ class ddb.Query
 
 		@parts = []
 
-	assoc: (kind) ->
-		@parts.push new @@Assoc(kind)
+	assoc: (filter) ->
+		@parts.push new @@Assoc(filter)
 
 	add: (...nodes) ->
 		@parts.push new @@Nodes(...nodes)
@@ -193,13 +193,13 @@ class ddb.Query
 		@parts.reduce(((acc, val) ~> val.find(@db, acc)), @base)
 
 	class @Assoc
-		(@kind = ddb.Node) ->
+		(@filter) ->
 
 		find: (db, prev) ->
 			prev.reduce (acc, node) ~>
 				acc = acc.slice!
 
-				assocs = db.assocs node, @kind
+				assocs = db.assocs node, @filter
 
 				for node in assocs when acc.index-of(node) == -1
 					acc.push node
