@@ -1,63 +1,69 @@
 util = require \util
 ddb  = require \./
 
-db = new ddb.DB
+na = new ddb.Node
 
-class Person extends ddb.ID
+# na.on \assoc, (a, b) ->
+# 	console.log '%s is now associated with %s', util.inspect(a), util.inspect(b)
+
+# na.on \register, -> console.log('new cell: %s', util.inspect(it))
+
+person-kind = new ddb.ID
+person-kind.inspect = -> \Person
+na.register person-kind
+
+Person = class extends ddb.ID
+	inspect: -> "<Person#{super!}>"
+	registered: (node) ->
+		super node
+		node.assoc this, person-kind
 	@id = \person
-
 ddb.registry.register Person
 
-class Name extends ddb.Data
-	@id = \name
-	@names = [ \type, \val ]
-	# todo: maybe?
-	@type = [ String, String ]
-
-ddb.registry.register Name
-
 [
-	[ \John, \Doe ]
-	[ \Jane, \Doe ]
+	[ \John \Doe ]
+	[ \Jane \Doe ]
+	[ \Sally \Doe ]
 ].for-each ([ first, last ]) ->
 	person = new Person
-	db.register person
+	na.register person
+	# na.assoc person, person-kind
 
-	first-name = new Name(\first, first)
-	db.register first-name
-	db.assoc person, first-name
+	first-name = new ddb.Data(\first, first)
+	na.register first-name
+	na.assoc person, first-name
 
-	last-name = new Name(\last, last)
-	db.register last-name
-	db.assoc person, last-name
-
-john-doe = new Person
-db.register john-doe
-
-first-name = new Name(\first, \John)
-db.register first-name
-
-last-name = new Name(\last, \Doe)
-db.register last-name
-
-db.assoc john-doe, first-name
-db.assoc john-doe, last-name
-
-db.assoc last-name, first-name
-
-# console.log db.all(Name)
-# console.log db.all(Name).map(-> db.assocs(it, Person))
+	last-name = new ddb.Data(\last, last)
+	na.register last-name
+	na.assoc person, last-name
 
 # Name(last, Doe) -> Person -> Name(first)
-q = new ddb.Query(db)
+q = new ddb.Query(na)
 
-q.add new Name(\last, \Doe)
-q.assoc Person
-q.assoc Name
-q.filter new Name(\first)
+q.add new ddb.Data(\last, \Doe)
+q.assoc! # Person
+q.filter-assoc person-kind
+q.assoc! # Name
+q.filter-out na
+q.filter new ddb.Data(\first)
 
 console.log q.run!
 
-flatten = -> it.reduce(((acc, val) -> acc.concat(val)), [])
+nb = new ddb.Node
 
-console.log db.assocs(new Name(\last, \Doe), Person)
+sa = na.create-stream!
+sb = nb.create-stream!
+sa.pipe(sb).pipe(sa)
+
+console.log nb.assocs!
+
+q = new ddb.Query(nb)
+
+q.add new ddb.Data(\last, \Doe)
+q.assoc! # Person
+q.filter-assoc person-kind
+q.assoc! # Name
+q.filter-out na, nb
+q.filter new ddb.Data(\first)
+
+console.log q.run!

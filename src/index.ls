@@ -1,44 +1,75 @@
-util = require \util
-hat  = require \hat
+through = require \through2
+crypto  = require \crypto
+xtend   = require \xtend
+util    = require \util
+hat     = require \hat
+ts      = require \monotonic-timestamp
+
+{EventEmitter: EE} = require \events
 
 ddb = exports
 
 ddb.registry = {}
 let @ = ddb.registry
-	@kinds = {}
+	@types = {}
 
-	@from = ([ id, j ]) -> @kinds[id].from-json j
-	@register = (kind) ->
-		if @kinds[kind.id]?
-			throw new Error("A kind with that id: #{util.inspect(kind.id)} is already registered")
+	@from = ([ id, j ]) -> @types[id].from-json j
+	@register = (type) ->
+		if @types[type.id]?
+			throw new Error("A cell type with that id: #{util.inspect(type.id)} is already registered")
 
-		@kinds[kind.id] = kind
+		@types[type.id] = type
 
-class ddb.Node
+	@to-json = (cell) ->
+		[ cell.constructor.id, cell.to-json! ]
+
+class ddb.Cell extends EE
 	registered: (db) ->
 	id: -> throw new Error("#{@constructor.name} must implement id")
 	to-json: -> throw new Error("#{@constructor.name} must implement to-json")
 	qid: -> "#{@constructor.id}-#{@id!}"
 
-	filter: (filter) ->
-		if filter instanceof Function and filter:: instanceof ddb.Node
-			return false unless @ instanceof filter
+	filter: (filter) -> filter == this or filter == @qid!
 
-		true
+	pipe: (dest) ->
+		@create-stream(writable: false).pipe(dest.create-stream(readable: false))
+		dest
 
-class ddb.ID extends ddb.Node
-	id: -> @_id
-	inspect: -> "<#{@constructor.name}:#{@_id}>"
-	registered: (db) ->
-		if @_id?
-			throw new Error('You\'re using an ID with multiple databases, that won\'t work')
+	create-stream: (opts = {}) ->
 
-		@_id = db.rack(@)
 
-	to-json: -> {}
-	@from-json = (j) -> new @
+		stream = through(objectMode: true, (u, enc, cb) ->
+			cb!
+		)
 
-class ddb.Data extends ddb.Node
+		@on \_update, (u) ->
+			stream.push u
+
+		stream
+
+	local-update: (d) ->
+		@_update [ d, @qid! ]
+
+	_update: (u) ->
+		@apply-update(u)
+
+class ddb.ID extends ddb.Cell
+	(@_id) ->
+	@id = \ddb:id
+	id: -> @_id + ''
+	inspect: -> "##{@_id}"
+	registered: (node) ->
+		# if @_id?
+		# 	throw new Error('You\'re using an ID with multiple databases, that won\'t work')
+
+		unless @_id?
+			@_id = crypto.createHash(\sha1).update(node.id! + '' + "-#{ts!}-#{node.rack(@)}").digest(\hex)
+
+	to-json: -> { id: @_id }
+	@from-json = (j) -> new @(j.id)
+ddb.registry.register(ddb.ID)
+
+class ddb.Data extends ddb.Cell
 	(...@data) ->
 		if @constructor.names?
 			for let name, i in @constructor.names
@@ -49,9 +80,10 @@ class ddb.Data extends ddb.Node
 					else
 						@data[i]
 
+	@id = \ddb:data
+
 	inspect: ->
 		[
-			@constructor.name,
 			'(',
 			@data.map(-> util.inspect(it)).join(', '),
 			')'
@@ -62,103 +94,58 @@ class ddb.Data extends ddb.Node
 	@from-json = (j) -> new @(...j)
 
 	filter: (filter) ->
-		if filter instanceof @constructor
+		if filter instanceof ddb.Data
 			for d, i in filter.data
 				return false unless d? and @data[i] == d
 
 			return true
 
 		super filter
+ddb.registry.register(ddb.Data)
 
-class ddb.DB extends ddb.ID
+class ddb.Node extends ddb.ID
+	@id = \ddb:node
+
 	->
-		@nodes = {} # { id: node }
-		@_assocs = {} # { id: [ node ] }
+		super!
+
+		@cells = {} # { id: cell }
+		@_assocs = {} # { id: [ cell ] }
+		@hist = {} # { id: creation update }
 		@rack = hat.rack!
 
+		@registered this
 		@register this
 
-	to-json: ->
-		j =
-			nodes: []
-			assocs: []
+	inspect: -> "<Node#{super!}>"
 
-		indexes = {}
+	register: (cell) ->
+		# @local-update [ \r ddb.registry.to-json(cell) ]
 
-		for id, node of @nodes
-			unless node == this
-				j.nodes.push [ node.constructor.id, node.to-json! ]
-				indexes[node.qid!] = j.nodes.length - 1
+		# cell = ddb.registry.from(d[1])
 
-		saved-assocs = {} # { a-id: Set(b-id) }
+		unless @cells[cell.qid!]?
+			cell.registered @
 
-		for a-id, assocs of @_assocs
-			saved-assocs[a-id] = new Set
+			@cells[cell.qid!] = cell
 
-			for b-id in assocs
-				unless saved-assocs[b-id]?.has(a-id) or b-id == @qid! or a-id == @qid!
-					j.assocs.push [ indexes[a-id], indexes[b-id] ]
+			unless cell == @
+				cell.on \_update, (u) ~>
+					@local-update [ \u, cell.qid!, u ]
 
-				saved-assocs[a-id].add b-id
+			@assoc this, cell
 
-		j
-
-	load-json: (j) ->
-		nodes = {}
-
-		for node, i in j.nodes
-			node = ddb.registry.from(node)
-			nodes[i] = node
-			@register node
-
-		for assoc in j.assocs
-			@assoc nodes[assoc[0]], nodes[assoc[1]]
+			@emit \register, cell
 
 		@
-
-	@from-json = (j) -> new @!.load-json(j)
-
-	register: (node) ->
-		unless @nodes[node.qid!]?
-			# throw new Error('That id is already registered: ' + util.inspect(node))
-		# else
-			node.registered @
-
-			@nodes[node.qid!] = node
-
-			# unless node == this
-			# of course the db is associated with the db
-			@assoc this, node
-			@assoc node, node
-
-			@rack.set(node.qid!, node)
-
-		@
-
-	all: (filter) ->
-		# all = []
-
-		# for id, node of @nodes when node instanceof kind
-		# 	all.push node
-
-		# all
-		@assocs @, filter
-
-	assocs: (node = @, filter) ->
-		assocs = @_assocs[node.qid!]
-
-		if assocs?
-			assocs.map(~> @nodes[it]).filter(-> it.filter(filter))
-		else
-			[]
 
 	assoc: (a, b) ->
 		do ~>
 			assocs = @_assocs[a.qid!]
 
 			unless assocs?
-				assocs = []
-				@_assocs[a.qid!] = assocs
+					assocs = []
+					@_assocs[a.qid!] = assocs
 
 			assocs.push b.qid! unless ~assocs.index-of(b.qid!)
 
@@ -166,60 +153,121 @@ class ddb.DB extends ddb.ID
 			assocs = @_assocs[b.qid!]
 
 			unless assocs?
-				assocs = []
-				@_assocs[b.qid!] = assocs
+					assocs = []
+					@_assocs[b.qid!] = assocs
 
 			assocs.push a.qid! unless ~assocs.index-of(a.qid!)
 
+		@emit \assoc, a, b
+
 		@
 
+	assocs: (cell = this, filter) ->
+		if @_assocs[cell.qid!]
+			res = @_assocs[cell.qid!].map(~> @cells[it]) # todo: requesting
+
+			if filter?
+				res = res.filter(-> it.filter(filter))
+
+			res
+		else
+			[]
+
+	apply-update: (u) ->
+		d = u[0]
+
+		switch d[0]
+		| \r =>
+			cell = ddb.registry.from(d[1])
+
+			@register cell
+
+	history: ->
+		hist = []
+
+		for id, u of @hist
+			hist.push u
+
+		for id, cell of @cells
+			hist = hist.concat(cell.history!)
+
+		hist
+
+	# create-stream: (opts = {}) ->
+	# 	stream = through(objectMode: true, (u, enc, cb) ->
+	# 		cb!
+	# 	)
+
+	# 	stream
+
+	# from-json: (j) -> 
+ddb.registry.register(ddb.Node)
+
 class ddb.Query
-	(@db, ...@base) ->
+	(@node, ...@base) ->
 		unless @base.length
-			@base.push @db
+			@base.push @node
 
 		@parts = []
 
 	assoc: (filter) ->
 		@parts.push new @@Assoc(filter)
 
-	add: (...nodes) ->
-		@parts.push new @@Nodes(...nodes)
+	add: (...cells) ->
+		@parts.push new @@Nodes(...cells)
 
 	filter: (filter) ->
 		@parts.push new @@Filter(filter)
 
+	filter-assoc: (cell, deep) ->
+		@parts.push new @@AssocFilter(cell, deep)
+
+	filter-out: (...cells) ->
+		@parts.push new @@FilterOut(...cells)
+
 	run: ->
-		@parts.reduce(((acc, val) ~> val.find(@db, acc)), @base)
+		@parts.reduce(((acc, part) ~> part.find(@node, acc)), @base)
 
 	class @Assoc
 		(@filter) ->
 
-		find: (db, prev) ->
-			prev.reduce (acc, node) ~>
+		find: (node, prev) ->
+			prev.reduce (acc, cell) ~>
 				acc = acc.slice!
 
-				assocs = db.assocs node, @filter
+				assocs = node.assocs cell, @filter
 
-				for node in assocs when acc.index-of(node) == -1
-					acc.push node
+				for cell in assocs when acc.index-of(cell) == -1
+						acc.push cell
 
 				acc
 			, []
 
 	class @Nodes
-		(...@nodes) ->
+		(...@cells) ->
 
-		find: (db, prev) ->
+		find: (node, prev) ->
 			after = prev.slice!
 
-			for node in @nodes when after.index-of(node) == -1
-				after.push node
+			for cell in @cells when after.index-of(cell) == -1
+				after.push cell
 
 			after
 
 	class @Filter
 		(@filter) ->
 
-		find: (db, prev) ->
+		find: (node, prev) ->
 			prev.filter(~> it.filter(@filter))
+
+	class @AssocFilter
+		(@cell, @deep = false) ->
+			throw new Error('not implemented') if deep
+
+		find: (node, prev) ->
+			prev.filter(~> node.assocs(it).index-of(@cell) != -1)
+
+	class @FilterOut
+		(...@cells) ->
+
+		find: (node, prev) -> prev.filter(~> @cells.index-of(it) == -1)

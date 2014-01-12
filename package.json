@@ -9,7 +9,11 @@
 	"main": "lib/index.js",
 
 	"dependencies": {
-		"hat": "~0.0.3"
+		"hat": "~0.0.3",
+		"async": "~0.2.9",
+		"monotonic-timestamp": "~0.0.8",
+		"through2": "~0.2.3",
+		"xtend": "~2.1.1"
 	},
 
 	"devDependencies": {
